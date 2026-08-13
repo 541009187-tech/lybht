@@ -158,7 +158,6 @@
     }
   }
 
-  // 获取上限配置
   async function loadConfig(){
     const res = await fetch("/config");
     const cfg = await res.json();
@@ -167,7 +166,6 @@
     document.getElementById("maxNum").value = maxLimit;
   }
 
-  // 修改上限
   async function setMax(){
     const val = parseInt(document.getElementById("maxNum").value);
     if(isNaN(val) || val < 1){
@@ -183,7 +181,7 @@
         max:val
       })
     })
-    alert("修改成功！");
+    alert("✅ 修改成功！");
     loadConfig();
     loadList();
   }
