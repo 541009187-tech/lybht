@@ -3,15 +3,15 @@ export async function onRequest({env,request}){
   const cfgKey="msg_config"
   const ADMIN_NAME = "管理员"
   const ADMIN_PWD = "xiaojun99"
+  const url = new URL(request.url)
 
-  // 获取配置
-  if(request.method === "GET" && new URL(request.url).pathname === "/config"){
+  //========= 修改/读取配置 （用参数区分，不用新路由）=========
+  if(url.searchParams.has("getcfg")){
     const raw = await env.MSG.get(cfgKey)
     const cfg = raw ? JSON.parse(raw) : {max:30}
     return Response.json(cfg)
   }
-  // 修改配置（管理员权限）
-  if(request.method === "PUT" && new URL(request.url).pathname === "/config"){
+  if(url.searchParams.has("setcfg") && request.method === "PUT"){
     const body = await request.json()
     const {nick,text,max} = body
     if(nick !== ADMIN_NAME || text !== ADMIN_PWD){
@@ -21,7 +21,7 @@ export async function onRequest({env,request}){
     return Response.json({ok:true})
   }
 
-  // 留言接口
+  //========= 留言基础接口 =========
   if(request.method==="POST"){
     const {c,nick}=await request.json()
     const cfgRaw = await env.MSG.get(cfgKey)
