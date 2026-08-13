@@ -3,36 +3,42 @@ export async function onRequest({env,request}){
   const cfgKey="msg_config"
   const ADMIN_NAME = "管理员"
   const ADMIN_PWD = "xiaojun99"
+
   const url = new URL(request.url)
 
-  //========= 修改/读取配置 （用参数区分，不用新路由）=========
-  if(url.searchParams.has("getcfg")){
+  // ========== 读取配置 ==========
+  if(url.pathname === "/config" && request.method === "GET"){
     const raw = await env.MSG.get(cfgKey)
-    const cfg = raw ? JSON.parse(raw) : {max:30}
-    return Response.json(cfg)
+    return Response.json(raw ? JSON.parse(raw) : {max:30})
   }
-  if(url.searchParams.has("setcfg") && request.method === "PUT"){
+  // ========== 修改配置（仅管理员） ==========
+  if(url.pathname === "/config" && request.method === "PUT"){
     const body = await request.json()
     const {nick,text,max} = body
-    if(nick !== ADMIN_NAME || text !== ADMIN_PWD){
-      return Response.json({ok:false,msg:"无权限"},{status:403})
-    }
-    await env.MSG.put(cfgKey,JSON.stringify({max}))
+    if(nick !== ADMIN_NAME || text !== ADMIN_PWD) return Response.json({msg:"无权限"},{status:403})
+    await env.MSG.put(cfgKey, JSON.stringify({max:Number(max)}))
     return Response.json({ok:true})
   }
 
-  //========= 留言基础接口 =========
-  if(request.method==="POST"){
+  // ========== 新增留言（自动读取上限） ==========
+  if(url.pathname === "/msg" && request.method==="POST"){
     const {c,nick}=await request.json()
+    // 读取你后台设置的上限
     const cfgRaw = await env.MSG.get(cfgKey)
     const cfg = cfgRaw ? JSON.parse(cfgRaw) : {max:30}
+
     const oldData=await env.MSG.get(key)
     const list=oldData ? JSON.parse(oldData) : []
     list.push({c,t:new Date().toLocaleString(), nick:nick})
+    // 超出上限自动删最早
     if(list.length > cfg.max) list.shift()
+
     await env.MSG.put(key,JSON.stringify(list))
     return Response.json({ok:true})
-  }else if(request.method==="DELETE"){
+  }
+
+  // ========== 删除留言 ==========
+  if(url.pathname === "/msg" && request.method==="DELETE"){
     const {idx,nick,text}=await request.json()
     const oldData=await env.MSG.get(key)
     const list=oldData ? JSON.parse(oldData) : []
@@ -44,12 +50,16 @@ export async function onRequest({env,request}){
     if(!isAdmin && !isOwner){
       return Response.json({ok:false,msg:"无权限删除"},{status:403})
     }
-
     list.splice(idx,1)
     await env.MSG.put(key,JSON.stringify(list))
     return Response.json({ok:true})
-  }else{
+  }
+
+  // ========== 获取留言列表 ==========
+  if(url.pathname === "/msg" && request.method==="GET"){
     const raw=await env.MSG.get(key)
     return Response.json(raw ? JSON.parse(raw) : [])
   }
+
+  return new Response("404")
 }
