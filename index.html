@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>留言管控后台</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Microsoft YaHei", sans-serif;
+    }
+    body{
+      background:#f1f5f9;
+      padding:24px;
+    }
+    .wrap{
+      max-width:700px;
+      margin:0 auto;
+    }
+    .card{
+      background:#fff;
+      border-radius:16px;
+      padding:24px;
+      box-shadow:0 4px 16px rgba(0,0,0,0.06);
+      margin-bottom:16px;
+    }
+    h2{
+      text-align:center;
+      color:#1e293b;
+      margin-bottom:20px;
+    }
+    .form-item{
+      margin-bottom:14px;
+    }
+    input{
+      width:100%;
+      padding:12px 14px;
+      border:1px solid #cbd5e1;
+      border-radius:10px;
+      font-size:16px;
+    }
+    .btn{
+      width:100%;
+      padding:13px;
+      border:none;
+      border-radius:10px;
+      font-size:16px;
+      cursor:pointer;
+      margin-top:8px;
+    }
+    .btn-login{
+      background:#2563eb;
+      color:#fff;
+    }
+    .btn-clear{
+      background:#dc2626;
+      color:#fff;
+    }
+    .msg-item{
+      border:1px solid #e2e8f0;
+      border-radius:12px;
+      padding:16px;
+      margin-bottom:12px;
+    }
+    .msg-top{
+      display:flex;
+      justify-content:space-between;
+      margin-bottom:8px;
+    }
+    .nick{
+      font-weight:bold;
+      color:#2563eb;
+    }
+    .time{
+      color:#64748b;
+      font-size:13px;
+    }
+    .msg-content{
+      color:#1e293b;
+      line-height:1.6;
+      margin-bottom:10px;
+    }
+    .del-one{
+      padding:6px 10px;
+      background:#ef4444;
+      color:#fff;
+      border:none;
+      border-radius:6px;
+      cursor:pointer;
+    }
+    .login-box{
+      display:block;
+    }
+    .panel{
+      display:none;
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card login-box" id="loginBox">
+    <h2>留言管控后台登录</h2>
+    <div class="form-item">
+      <input type="text" id="adminUser" placeholder="管理员账号">
+    </div>
+    <div class="form-item">
+      <input type="password" id="adminPwd" placeholder="管理员密码">
+    </div>
+    <button class="btn btn-login" onclick="login()">登录后台</button>
+  </div>
+
+  <div class="card panel" id="panel">
+    <h2>留言管控面板</h2>
+    <button class="btn btn-clear" onclick="clearAll()">清空全部留言（不可恢复）</button>
+    <div id="listBox" style="margin-top:20px;"></div>
+  </div>
+</div>
+
+<script>
+  const ADMIN_NAME = "管理员";
+  const ADMIN_PWD = "xiaojun99";
+
+  let msgList = [];
+
+  function login(){
+    const u = document.getElementById("adminUser").value.trim();
+    const p = document.getElementById("adminPwd").value.trim();
+    if(u === ADMIN_NAME && p === ADMIN_PWD){
+      document.getElementById("loginBox").style.display = "none";
+      document.getElementById("panel").style.display = "block";
+      loadList();
+    }else{
+      alert("账号或密码错误！");
+    }
+  }
+
+  async function loadList(){
+    const res = await fetch("/msg");
+    msgList = await res.json();
+    renderList();
+  }
+
+  function renderList(){
+    const box = document.getElementById("listBox");
+    if(msgList.length === 0){
+      box.innerHTML = "<p style='text-align:center;color:#64748b;'>暂无留言</p>";
+      return;
+    }
+    let html = "";
+    for(let i=msgList.length-1;i>=0;i--){
+      const item = msgList[i];
+      html += `
+      <div class="msg-item">
+        <div class="msg-top">
+          <span class="nick">${item.nick}</span>
+          <span class="time">${item.t}</span>
+        </div>
+        <div class="msg-content">${item.c}</div>
+        <button class="del-one" onclick="delOne(${i})">删除这条</button>
+      </div>
+      `
+    }
+    box.innerHTML = html;
+  }
+
+  async function delOne(idx){
+    if(!confirm("确定删除这条留言？")) return;
+    await fetch("/msg",{
+      method:"DELETE",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        idx:idx,
+        nick:ADMIN_NAME,
+        text:ADMIN_PWD
+      })
+    })
+    loadList();
+  }
+
+  async function clearAll(){
+    if(!confirm("⚠️ 确认清空所有留言，数据无法恢复！")) return;
+    for(let i=msgList.length-1;i>=0;i--){
+      await fetch("/msg",{
+        method:"DELETE",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          idx:i,
+          nick:ADMIN_NAME,
+          text:ADMIN_PWD
+        })
+      })
+    }
+    loadList();
+  }
+
+  setInterval(loadList,10000);
+</script>
+</body>
+</html>
