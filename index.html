@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>留言后台</title>
+  <title>留言管控后台</title>
   <style>
     * {
       box-sizing: border-box;
@@ -58,6 +58,10 @@
       background:#dc2626;
       color:#fff;
     }
+    .btn-set{
+      background:#0284c7;
+      color:#fff;
+    }
     .msg-item{
       border:1px solid #e2e8f0;
       border-radius:12px;
@@ -96,6 +100,15 @@
     .panel{
       display:none;
     }
+    .setting-row{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      margin-bottom:16px;
+    }
+    .setting-row input{
+      flex:1;
+    }
   </style>
 </head>
 <body>
@@ -113,6 +126,13 @@
 
   <div class="card panel" id="panel">
     <h2>留言管控面板</h2>
+
+    <div class="setting-row">
+      <input type="number" id="maxNum" min="1" placeholder="留言上限条数">
+      <button class="btn btn-set" style="width:140px;margin:0" onclick="setMax()">保存上限</button>
+    </div>
+    <div style="color:#475569;margin-bottom:12px">当前上限：<span id="nowMax">--</span> 条</div>
+
     <button class="btn btn-clear" onclick="clearAll()">清空全部留言（不可恢复）</button>
     <div id="listBox" style="margin-top:20px;"></div>
   </div>
@@ -123,6 +143,7 @@
   const ADMIN_PWD = "xiaojun99";
 
   let msgList = [];
+  let maxLimit = 30;
 
   function login(){
     const u = document.getElementById("adminUser").value.trim();
@@ -130,10 +151,41 @@
     if(u === ADMIN_NAME && p === ADMIN_PWD){
       document.getElementById("loginBox").style.display = "none";
       document.getElementById("panel").style.display = "block";
+      loadConfig();
       loadList();
     }else{
       alert("账号或密码错误！");
     }
+  }
+
+  // 获取上限配置
+  async function loadConfig(){
+    const res = await fetch("/config");
+    const cfg = await res.json();
+    maxLimit = cfg.max || 30;
+    document.getElementById("nowMax").innerText = maxLimit;
+    document.getElementById("maxNum").value = maxLimit;
+  }
+
+  // 修改上限
+  async function setMax(){
+    const val = parseInt(document.getElementById("maxNum").value);
+    if(isNaN(val) || val < 1){
+      alert("请输入≥1的数字");
+      return;
+    }
+    await fetch("/config",{
+      method:"PUT",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        nick:ADMIN_NAME,
+        text:ADMIN_PWD,
+        max:val
+      })
+    })
+    alert("修改成功！");
+    loadConfig();
+    loadList();
   }
 
   async function loadList(){
@@ -195,7 +247,12 @@
     loadList();
   }
 
-  setInterval(loadList,10000);
+  setInterval(()=>{
+    if(document.getElementById("panel").style.display === "block"){
+      loadConfig();
+      loadList();
+    }
+  },10000);
 </script>
 </body>
 </html>
