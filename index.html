@@ -1,256 +1,110 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>留言管控后台</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: "Microsoft YaHei", sans-serif;
-    }
-    body{
-      background:#f1f5f9;
-      padding:24px;
-    }
-    .wrap{
-      max-width:700px;
-      margin:0 auto;
-    }
-    .card{
-      background:#fff;
-      border-radius:16px;
-      padding:24px;
-      box-shadow:0 4px 16px rgba(0,0,0,0.06);
-      margin-bottom:16px;
-    }
-    h2{
-      text-align:center;
-      color:#1e293b;
-      margin-bottom:20px;
-    }
-    .form-item{
-      margin-bottom:14px;
-    }
-    input{
-      width:100%;
-      padding:12px 14px;
-      border:1px solid #cbd5e1;
-      border-radius:10px;
-      font-size:16px;
-    }
-    .btn{
-      width:100%;
-      padding:13px;
-      border:none;
-      border-radius:10px;
-      font-size:16px;
-      cursor:pointer;
-      margin-top:8px;
-    }
-    .btn-login{
-      background:#2563eb;
-      color:#fff;
-    }
-    .btn-clear{
-      background:#dc2626;
-      color:#fff;
-    }
-    .btn-set{
-      background:#0284c7;
-      color:#fff;
-    }
-    .msg-item{
-      border:1px solid #e2e8f0;
-      border-radius:12px;
-      padding:16px;
-      margin-bottom:12px;
-    }
-    .msg-top{
-      display:flex;
-      justify-content:space-between;
-      margin-bottom:8px;
-    }
-    .nick{
-      font-weight:bold;
-      color:#2563eb;
-    }
-    .time{
-      color:#64748b;
-      font-size:13px;
-    }
-    .msg-content{
-      color:#1e293b;
-      line-height:1.6;
-      margin-bottom:10px;
-    }
-    .del-one{
-      padding:6px 10px;
-      background:#ef4444;
-      color:#fff;
-      border:none;
-      border-radius:6px;
-      cursor:pointer;
-    }
-    .login-box{
-      display:block;
-    }
-    .panel{
-      display:none;
-    }
-    .setting-row{
-      display:flex;
-      gap:8px;
-      align-items:center;
-      margin-bottom:16px;
-    }
-    .setting-row input{
-      flex:1;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>云端留言板</title>
+<!-- lybht.pages.dev 专属必应验证标签 -->
+<meta name="msvalidate.01" content="5375C1040004CDBEFCF73F7C9133AD5E" />
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,sans-serif;}
+body{padding:16px;max-width:720px;margin:0 auto;background:#f6f7f9;color:#222;}
+.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 2px 8px #00000012;}
+input,textarea{width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;margin:8px 0;font-size:16px;}
+button{width:100%;padding:14px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer;}
+.msg-item{border-bottom:1px solid #eee;padding:12px 0;}
+.msg-name{font-weight:bold;color:#2563eb;}
+.msg-time{font-size:12px;color:#888;margin:4px 0;}
+.msg-content{word-break:break-all;}
+</style>
 </head>
 <body>
-<div class="wrap">
-  <div class="card login-box" id="loginBox">
-    <h2>留言管控后台登录</h2>
-    <div class="form-item">
-      <input type="text" id="adminUser" placeholder="管理员账号">
-    </div>
-    <div class="form-item">
-      <input type="password" id="adminPwd" placeholder="管理员密码">
-    </div>
-    <button class="btn btn-login" onclick="login()">登录后台</button>
-  </div>
-
-  <div class="card panel" id="panel">
-    <h2>留言管控面板</h2>
-
-    <div class="setting-row">
-      <input type="number" id="maxNum" min="1" placeholder="留言上限条数">
-      <button class="btn btn-set" style="width:140px;margin:0" onclick="setMax()">保存上限</button>
-    </div>
-    <div style="color:#475569;margin-bottom:12px">当前上限：<span id="nowMax">--</span> 条</div>
-
-    <button class="btn btn-clear" onclick="clearAll()">清空全部留言（不可恢复）</button>
-    <div id="listBox" style="margin-top:20px;"></div>
-  </div>
+<div class="card">
+  <h3>📝发表留言</h3>
+  <input id="name" placeholder="昵称" autocomplete="off">
+  <textarea id="content" rows="4" placeholder="写下留言..." autocomplete="off"></textarea>
+  <button id="submitBtn">提交留言</button>
 </div>
 
+<div class="card">
+  <h3>📋全部留言</h3>
+  <div id="msgList"></div>
+</div>
+
+<!-- 隐藏内链，帮助必应爬虫发现 /api/msg 接口（肉眼不可见） -->
+<a href="/api/msg" style="display:none">留言数据接口</a>
+
 <script>
-  const ADMIN_NAME = "管理员";
-  const ADMIN_PWD = "xiaojun99";
+const msgList = document.getElementById('msgList');
+const submitBtn = document.getElementById('submitBtn');
+const nameInp = document.getElementById('name');
+const contentInp = document.getElementById('content');
 
-  let msgList = [];
-  let maxLimit = 30;
+async function loadMsg(){
+  try{
+    const res = await fetch('/api/msg');
+    const data = await res.json();
+    render(data)
+  }catch(e){
+    console.error('加载留言异常',e);
+  }
+}
+function render(list){
+  msgList.innerHTML = '';
+  if(!list || !list.length){
+    msgList.innerHTML = '<p>暂无留言</p>';
+    return;
+  }
+  list.forEach(item=>{
+    const div = document.createElement('div');
+    div.className = 'msg-item';
+    div.innerHTML = `
+      <div class="msg-name">${escapeHtml(item.name)}</div>
+      <div class="msg-time">${item.time}</div>
+      <div class="msg-content">${escapeHtml(item.content)}</div>
+    `;
+    msgList.appendChild(div);
+  })
+}
+function escapeHtml(str){
+  return String(str)
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'","&#039;")
+}
 
-  function login(){
-    const u = document.getElementById("adminUser").value.trim();
-    const p = document.getElementById("adminPwd").value.trim();
-    if(u === ADMIN_NAME && p === ADMIN_PWD){
-      document.getElementById("loginBox").style.display = "none";
-      document.getElementById("panel").style.display = "block";
-      loadConfig();
-      loadList();
+submitBtn.addEventListener('click',async ()=>{
+  const name = nameInp.value.trim();
+  const content = contentInp.value.trim();
+  if(!name || !content) return alert('昵称和留言不能为空');
+  submitBtn.disabled = true;
+  submitBtn.textContent = '提交中...';
+  try{
+    const res = await fetch('/api/msg',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name,content})
+    })
+    const ret = await res.json();
+    if(ret.ok){
+      alert('留言成功！');
+      nameInp.value = '';
+      contentInp.value = '';
+      loadMsg();
     }else{
-      alert("账号或密码错误！");
+      alert('失败：'+ret.msg)
     }
+  }catch(e){
+    console.error('提交异常',e);
+    alert('网络异常，请重试');
   }
+  submitBtn.disabled = false;
+  submitBtn.textContent = '提交留言';
+})
 
-  async function loadConfig(){
-    const res = await fetch("/config");
-    const cfg = await res.json();
-    maxLimit = cfg.max || 30;
-    document.getElementById("nowMax").innerText = maxLimit;
-    document.getElementById("maxNum").value = maxLimit;
-  }
-
-  async function setMax(){
-    const val = parseInt(document.getElementById("maxNum").value);
-    if(isNaN(val) || val < 1){
-      alert("请输入≥1的数字");
-      return;
-    }
-    await fetch("/config",{
-      method:"PUT",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        nick:ADMIN_NAME,
-        text:ADMIN_PWD,
-        max:val
-      })
-    })
-    alert("✅ 修改成功！");
-    loadConfig();
-    loadList();
-  }
-
-  async function loadList(){
-    const res = await fetch("/msg");
-    msgList = await res.json();
-    renderList();
-  }
-
-  function renderList(){
-    const box = document.getElementById("listBox");
-    if(msgList.length === 0){
-      box.innerHTML = "<p style='text-align:center;color:#64748b;'>暂无留言</p>";
-      return;
-    }
-    let html = "";
-    for(let i=msgList.length-1;i>=0;i--){
-      const item = msgList[i];
-      html += `
-      <div class="msg-item">
-        <div class="msg-top">
-          <span class="nick">${item.nick}</span>
-          <span class="time">${item.t}</span>
-        </div>
-        <div class="msg-content">${item.c}</div>
-        <button class="del-one" onclick="delOne(${i})">删除这条</button>
-      </div>
-      `
-    }
-    box.innerHTML = html;
-  }
-
-  async function delOne(idx){
-    if(!confirm("确定删除这条留言？")) return;
-    await fetch("/msg",{
-      method:"DELETE",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        idx:idx,
-        nick:ADMIN_NAME,
-        text:ADMIN_PWD
-      })
-    })
-    loadList();
-  }
-
-  async function clearAll(){
-    if(!confirm("⚠️ 确认清空所有留言，数据无法恢复！")) return;
-    for(let i=msgList.length-1;i>=0;i--){
-      await fetch("/msg",{
-        method:"DELETE",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          idx:i,
-          nick:ADMIN_NAME,
-          text:ADMIN_PWD
-        })
-      })
-    }
-    loadList();
-  }
-
-  setInterval(()=>{
-    if(document.getElementById("panel").style.display === "block"){
-      loadConfig();
-      loadList();
-    }
-  },10000);
+loadMsg();
 </script>
 </body>
 </html>
